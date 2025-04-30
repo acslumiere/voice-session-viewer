@@ -43,7 +43,7 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [includeUser, setIncludeUser] = useState(true);
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeQuestion, setIncludeQuestion] = useState(true);
-  const [voices, setVoices] = useState([]);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const voiceSelectRef = useRef<HTMLSelectElement | null>(null);
 
   useEffect(() => {
