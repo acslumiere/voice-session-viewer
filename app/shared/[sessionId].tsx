@@ -37,7 +37,7 @@ export default function SharedSessionView() {
 const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [label, setLabel] = useState('');
   const [tag, setTag] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   
 
   const [includeUser, setIncludeUser] = useState(true);
