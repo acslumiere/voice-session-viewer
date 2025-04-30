@@ -53,7 +53,7 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
     if (voicesList?.length > 0) setVoices(voicesList);
   };
   handleVoices();
-    let fallback;
+  let fallback: ReturnType<typeof setTimeout> | undefined;
     if (typeof window !== 'undefined') {
       fallback = setTimeout(() => handleVoices(), 200);
     }
