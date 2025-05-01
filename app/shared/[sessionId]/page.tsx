@@ -1,18 +1,22 @@
 // /shared/[sessionId].tsx
 'use client';
-// 🔁 Redeploy trigger - update route map
 import { useParams } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+
+interface SpeechSynthesisVoice {
+  name: string;
+  lang: string;
+}
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB05T6rdLqrnbub4v94BhbEFCssh6Zu_qI",
-  authDomain: "voice-intake-ai.firebaseapp.com",
-  projectId: "voice-intake-ai",
-  storageBucket: "voice-intake-ai.appspot.com",
-  messagingSenderId: "277135179085",
-  appId: "1:277135179085:web:05a74bec51372e0a7c0b04"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -30,17 +34,15 @@ export default function SharedSessionView() {
     ? Array.isArray(rawParams.sessionId)
       ? rawParams.sessionId[0]
       : rawParams.sessionId
-    : 'test-session'; // fallback for preview environments
+    : 'test-session';
 
-  console.log('SESSION ID:', sessionId);
   if (!sessionId) return <div className="p-6 text-red-600">Missing or invalid session ID.</div>;
-  
-const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [label, setLabel] = useState('');
   const [tag, setTag] = useState('');
   const [error, setError] = useState<string | null>(null);
-  
-
+  const [isLoading, setIsLoading] = useState(true);
   const [includeUser, setIncludeUser] = useState(true);
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeQuestion, setIncludeQuestion] = useState(true);
@@ -49,12 +51,12 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     const handleVoices = () => {
-    if (typeof window === 'undefined') return;
-    const voicesList = window.speechSynthesis?.getVoices?.();
-    if (voicesList?.length > 0) setVoices(voicesList);
-  };
-  handleVoices();
-  let fallback: ReturnType<typeof setTimeout> | undefined;
+      if (typeof window === 'undefined') return;
+      const voicesList = window.speechSynthesis?.getVoices?.();
+      if (voicesList?.length > 0) setVoices(voicesList);
+    };
+    handleVoices();
+    let fallback: ReturnType<typeof setTimeout> | undefined;
     if (typeof window !== 'undefined') {
       fallback = setTimeout(() => handleVoices(), 200);
     }
@@ -66,20 +68,23 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   useEffect(() => {
     async function fetchSharedSession() {
+      setIsLoading(true);
       try {
         const ref = doc(db, 'sessions', sessionId);
         const snap = await getDoc(ref);
-        console.log('SNAPSHOT EXISTS:', snap.exists());
         if (snap.exists()) {
           const data = snap.data();
-          console.log('RAW FIRESTORE DATA:', data);
           const rawHistory = data.history;
-          console.log('RAW HISTORY VALUE:', rawHistory);
-          if (!Array.isArray(rawHistory)) {
+          if (!Array.isArray(rawHistory) || !rawHistory.every((item: any) => 
+            item && typeof item === 'object' && 
+            'userResponse' in item && 
+            'summary' in item && 
+            'question' in item
+          )) {
             setError("Invalid or missing history data.");
             return;
           }
-          setHistory(rawHistory);
+          setHistory(rawHistory as HistoryEntry[]);
           setLabel(data.label || 'Untitled');
           setTag(data.tag || '');
         } else {
@@ -87,19 +92,30 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
         }
       } catch (err) {
         setError('Failed to load session.');
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchSharedSession();
   }, [sessionId]);
 
-  const getNarrationText = () => {
+  const getNarrationText = useCallback(() => {
     return history.filter(h => h && typeof h === 'object').map(h => [
       includeUser ? h.userResponse : null,
       includeSummary ? `Summary: ${h.summary}` : null,
       includeQuestion ? `Follow-up: ${h.question}` : null
     ].filter(Boolean).join('. ')).join('. ');
-  };
+  }, [history, includeUser, includeSummary, includeQuestion]);
 
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  if (isLoading) return <div className="p-6">Loading...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
   return (
@@ -128,24 +144,13 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
             )) : <option disabled>Loading voices...</option>}
           </select>
           <div className="flex justify-center gap-4">
-            <label><input type="checkbox" checked={includeUser} onChange={() => {
-              const newVal = !includeUser;
-              setIncludeUser(newVal);
-              // localStorage update removed for SSR safety
-            }} /> User</label>
-            <label><input type="checkbox" checked={includeSummary} onChange={() => {
-              const newVal = !includeSummary;
-              setIncludeSummary(newVal);
-              // localStorage update removed for SSR safety
-            }} /> Summary</label>
-            <label><input type="checkbox" checked={includeQuestion} onChange={() => {
-              const newVal = !includeQuestion;
-              setIncludeQuestion(newVal);
-              // localStorage update removed for SSR safety
-            }} /> Follow-up</label>
+            <label><input type="checkbox" checked={includeUser} onChange={() => setIncludeUser(!includeUser)} /> User</label>
+            <label><input type="checkbox" checked={includeSummary} onChange={() => setIncludeSummary(!includeSummary)} /> Summary</label>
+            <label><input type="checkbox" checked={includeQuestion} onChange={() => setIncludeQuestion(!includeQuestion)} /> Follow-up</label>
           </div>
         </div>
         <button
+          aria-label="Narrate session"
           onClick={() => {
             const msg = new SpeechSynthesisUtterance();
             if (typeof window === 'undefined') return;
@@ -168,25 +173,22 @@ const [history, setHistory] = useState<HistoryEntry[]>([]);
       </div>
       <div className="mt-6 text-center space-x-2">
         <button
-          onClick={() => {
-            window.speechSynthesis.pause();
-          }}
+          aria-label="Pause narration"
+          onClick={() => window.speechSynthesis.pause()}
           className="bg-yellow-500 text-white px-4 py-2 rounded"
         >
           ⏸ Pause
         </button>
         <button
-          onClick={() => {
-            window.speechSynthesis.resume();
-          }}
+          aria-label="Resume narration"
+          onClick={() => window.speechSynthesis.resume()}
           className="bg-indigo-600 text-white px-4 py-2 rounded"
         >
           ▶️ Resume
         </button>
         <button
-          onClick={() => {
-            window.speechSynthesis.cancel();
-          }}
+          aria-label="Stop narration"
+          onClick={() => window.speechSynthesis.cancel()}
           className="bg-red-600 text-white px-4 py-2 rounded"
         >
           ⏹ Stop
