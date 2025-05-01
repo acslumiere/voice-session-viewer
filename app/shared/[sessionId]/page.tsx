@@ -1,6 +1,6 @@
 // /shared/[sessionId].tsx
 'use client';
-// Trigger redeploy to register dynamic route
+// 🔁 Redeploy trigger - update route map
 import { useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
