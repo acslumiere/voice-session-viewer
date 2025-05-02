@@ -1,19 +1,19 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 
-// ️ REPLACE ONLY THIS CONFIG BLOCK ️
+// ️ Firebase Configuration (keep this exactly as is) ️
 const firebaseConfig = {
-  apiKey: "AIzaSyB05T6rdLqrnbub4v94BhbEFCssh6Zu_qI", // Use THIS key
+  apiKey: "AIzaSyB05T6rdLqrnbub4v94BhbEFCssh6Zu_qI",
   authDomain: "voice-intake-ai.firebaseapp.com",
   projectId: "voice-intake-ai",
   storageBucket: "voice-intake-ai.firebasestorage.app",
-  messagingSenderId: "277135179085", // Fix this
-  appId: "1:277135179085:web:05a74bec51372e0a7c0b04", // Add colon (:) after "085"
+  messagingSenderId: "277135179085",
+  appId: "1:277135179085:web:05a74bec51372e0a7c0b04",
 };
-// ️ END OF CONFIG BLOCK ️
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -45,16 +45,32 @@ export default function TestPage() {
   };
 
   return (
-    <div>
-      <h1>Firebase Tests</h1>
+    <div className="p-4">
+      <div className="mb-6">
+        <Link 
+          href="/"
+          className="text-blue-500 hover:underline inline-block mb-4"
+        >
+          ← Back to Home
+        </Link>
+        <h1 className="text-2xl font-bold">Firebase Tests</h1>
+      </div>
+
       <button 
         onClick={runTests} 
         disabled={loading}
-        style={{ padding: '8px 16px', backgroundColor: loading ? 'gray' : 'blue', color: 'white' }}
+        className={`px-4 py-2 rounded text-white ${
+          loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
+        }`}
       >
         {loading ? "Testing..." : "Run Tests"}
       </button>
-      <pre>{result}</pre>
+
+      {result && (
+        <pre className="mt-4 p-4 bg-gray-100 rounded whitespace-pre-wrap">
+          {result}
+        </pre>
+      )}
     </div>
   );
 }
